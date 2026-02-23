@@ -1,65 +1,63 @@
 import Image from "next/image";
+import CctvForm from "@/components/features/cctv/CctvForm";
 
 export default function Home() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <main className="min-h-screen py-16 px-4 relative flex flex-col items-center overflow-x-hidden">
+      {/* Visual Background Layers (Premium Architecture) */}
+      <div className="bg-grid-sub" />
+      <div className="bg-grid" />
+
+      {/* Atmospheric Blooms */}
+      <div className="bg-bloom top-[-400px] left-[-200px]" />
+      <div className="bg-bloom bottom-[-400px] right-[-200px] opacity-60" />
+
+      {/* Floating Geometric Elements */}
+      <div className="geometric-box top-[10%] left-[5%] rotate-[15deg] animate-pulse" />
+      <div className="geometric-box bottom-[15%] right-[8%] rotate-[-12deg] opacity-50" />
+      <div className="geometric-box top-[40%] right-[-50px] rotate-[45deg] scale-150 border-white/5" />
+
+      <div className="max-w-4xl w-full z-10">
+        {/* Header Section: Logbook Style */}
+        <div className="flex flex-col md:flex-row items-center justify-between gap-8 mb-12 border-b border-white/5 pb-10">
+          <div className="text-center md:text-left space-y-4">
+
+
+            <h1 className="text-6xl font-black text-white leading-[0.8] tracking-tighter uppercase">
+              CCTV<br />
+              <span className="text-blue-500">Logbook</span>
+            </h1>
+
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.3em] pt-2">
+              Official Incident Recording System
+            </p>
+          </div>
+
+          <div className="relative group p-2">
+            <div className="absolute inset-0 bg-blue-500/10 blur-2xl rounded-full" />
+            <Image
+              src="/logo.png"
+              alt="CDRRMO Logo"
+              width={140}
+              height={140}
+              className="relative object-contain"
+              priority
+            />
+          </div>
+        </div>
+
+        {/* The Digital Logbook Form */}
+        <div className="enterprise-card p-6 md:p-10">
+          <CctvForm />
+        </div>
+
+        {/* Security & Access Disclaimer */}
+        <div className="mt-12 text-center opacity-40 select-none">
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">
+            For Authorized Radio Room Use Only
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+      </div>
+    </main>
   );
 }
