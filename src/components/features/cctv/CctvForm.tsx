@@ -16,11 +16,11 @@ import { createCctvLogAction } from '@/app/actions/cctv_actions';
 import { useState, useEffect, useActionState } from 'react';
 import { useRouter } from 'next/navigation';
 import CctvLogList from './CctvLogList';
-import { toast } from 'sonner';
+import { notify } from '@/lib/utils/notifications';
 import {
     Calendar, User, Info, Loader2, Clock, Camera, Tag, Save,
     ScanSearch, FileVideo, VideoOff, CheckCircle2, ChevronDown,
-    X, Plus, Trash2, AlertCircle, PartyPopper, Eye
+    X, Plus, Trash2, AlertCircle, PartyPopper, Eye, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useMemo } from 'react';
@@ -44,10 +44,14 @@ interface OfflineCameraEntryForm {
 
 interface CctvFormProps {
     allLogs: CctvLogModel[];
+    totalCount: number;
+    currentPage: number;
 }
 
-export default function CctvForm({ allLogs }: CctvFormProps) {
+export default function CctvForm({ allLogs, totalCount, currentPage }: CctvFormProps) {
     const router = useRouter();
+    const PAGE_SIZE = 10;
+    const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
     // View State
     const [activeView, setActiveView] = useState<'view' | 'create'>('view');
@@ -99,6 +103,21 @@ export default function CctvForm({ allLogs }: CctvFormProps) {
         control,
         name: "offline_cameras" as any // Type cast for discriminated union compatibility
     });
+
+    /**
+     * Senior Logic: Smart Date Formatter
+     * Converts raw digits (2024428) into standard date strings (2024-04-28)
+     */
+    const handleSmartDate = (fieldName: keyof CctvLog, value: string) => {
+        const digits = value.replace(/\D/g, '');
+        if (digits.length === 8) {
+            const formatted = `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`;
+            setValue(fieldName, formatted as any);
+        } else if (digits.length === 7) {
+            const formatted = `${digits.slice(0, 4)}-0${digits.slice(4, 5)}-${digits.slice(5, 7)}`;
+            setValue(fieldName, formatted as any);
+        }
+    };
 
     // Stats calculation optimized for Senior Dev performance
     const stats = useMemo(() => {
@@ -164,7 +183,7 @@ export default function CctvForm({ allLogs }: CctvFormProps) {
             const result = await createCctvLogAction(payload);
 
             if (result.success) {
-                toast.success('Log entry recorded');
+                notify.success('Log entry recorded');
                 router.refresh();
                 setOptimisticLogs(prev => prev.filter(log => log.id !== optimisticLog.id));
                 reset();
@@ -174,13 +193,13 @@ export default function CctvForm({ allLogs }: CctvFormProps) {
                 // Rollback on failure
                 setOptimisticLogs(prev => prev.filter(log => log.id !== optimisticLog.id));
                 setSubmitError(result.error || 'Failed to save log.');
-                toast.error('Submission failed');
+                notify.error('Submission failed', result.error);
             }
         } catch (error) {
             // Rollback on error
             setOptimisticLogs(prev => prev.filter(log => log.id !== optimisticLog.id));
             setSubmitError(error instanceof Error ? error.message : 'An error occurred.');
-            toast.error('System error');
+            notify.error('System error');
         } finally {
             setIsSubmitting(false);
         }
@@ -192,10 +211,16 @@ export default function CctvForm({ allLogs }: CctvFormProps) {
         return combined.filter(log => log.action_type === filterCategory);
     }, [allLogs, optimisticLogs, filterCategory]);
 
+    const handlePageChange = (newPage: number) => {
+        const params = new URLSearchParams(window.location.search);
+        params.set('page', newPage.toString());
+        router.push(`?${params.toString()}`);
+    };
+
     return (
-        <div className="space-y-8 max-w-7xl mx-auto">
+        <div className="space-y-6 max-w-7xl mx-auto">
             {/* Dashboard Header - Click to create new entry */}
-            <div className="flex flex-col md:flex-row gap-6">
+            <div className="flex flex-col md:flex-row gap-4">
                 {ACTION_TYPES.map((item) => {
                     const count = item.id === 'CCTV Review' ? stats.reviews : item.id === 'Footage Extraction' ? stats.extractions : stats.offline;
                     const isFiltering = filterCategory === item.id;
@@ -212,23 +237,23 @@ export default function CctvForm({ allLogs }: CctvFormProps) {
                                 }
                             }}
                             className={clsx(
-                                "flex-1 relative group p-6 rounded-2xl border transition-all duration-300 overflow-hidden text-left",
+                                "flex-1 relative group p-4 rounded-xl border transition-all duration-300 overflow-hidden text-left",
                                 isFiltering
                                     ? "bg-blue-600/10 border-blue-500 shadow-[0_0_30px_rgba(59,130,246,0.15)] ring-1 ring-blue-500/50"
                                     : "bg-slate-900/40 border-white/5 hover:border-white/10"
                             )}
                         >
                             <div className="flex items-start justify-between">
-                                <item.icon className={clsx("w-8 h-8 transition-colors duration-300", isFiltering ? "text-blue-500" : "text-slate-500 group-hover:text-slate-400")} />
-                                <span className={clsx("text-2xl font-black tracking-tight", isFiltering ? "text-white" : "text-slate-600 group-hover:text-slate-400")}>{count}</span>
+                                <item.icon className={clsx("w-6 h-6 transition-colors duration-300", isFiltering ? "text-blue-500" : "text-slate-500 group-hover:text-slate-400")} />
+                                <span className={clsx("text-xl font-black tracking-tight", isFiltering ? "text-white" : "text-slate-600 group-hover:text-slate-400")}>{count}</span>
                             </div>
-                            <div className="mt-4">
-                                <h3 className={clsx("text-[10px] font-black tracking-[0.2em] uppercase", isFiltering ? "text-blue-400" : "text-slate-500 group-hover:text-slate-400")}>{item.label}</h3>
-                                <p className="text-xs text-slate-500 mt-1 capitalize">
+                            <div className="mt-3">
+                                <h3 className={clsx("text-[9px] font-black tracking-[0.2em] uppercase", isFiltering ? "text-blue-400" : "text-slate-500 group-hover:text-slate-400")}>{item.label}</h3>
+                                <p className="text-[10px] text-slate-500 mt-0.5 capitalize">
                                     {isFiltering ? "Viewing Respective Data" : "Click to view logs"}
                                 </p>
                             </div>
-                            {isFiltering && <div className="absolute top-0 right-0 w-12 h-12 bg-blue-500/10 blur-2xl -mr-4 -mt-4 opacity-100" />}
+                            {isFiltering && <div className="absolute top-0 right-0 w-10 h-10 bg-blue-500/10 blur-2xl -mr-4 -mt-4 opacity-100" />}
                         </button>
                     );
                 })}
@@ -254,6 +279,29 @@ export default function CctvForm({ allLogs }: CctvFormProps) {
                 {activeView === 'view' ? (
                     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                         <CctvLogList logs={filteredLogs} />
+
+                        {/* Pagination Controls */}
+                        {totalPages > 1 && (
+                            <div className="flex items-center justify-center gap-4 mt-12 pt-8 border-t border-white/5">
+                                <button
+                                    disabled={currentPage <= 1}
+                                    onClick={() => handlePageChange(currentPage - 1)}
+                                    className="p-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-20 transition-all"
+                                >
+                                    <ChevronLeft className="w-5 h-5 text-white" />
+                                </button>
+                                <span className="text-xs font-black text-slate-500 uppercase tracking-widest">
+                                    Page <span className="text-white">{currentPage}</span> of {totalPages}
+                                </span>
+                                <button
+                                    disabled={currentPage >= totalPages}
+                                    onClick={() => handlePageChange(currentPage + 1)}
+                                    className="p-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-20 transition-all"
+                                >
+                                    <ChevronRight className="w-5 h-5 text-white" />
+                                </button>
+                            </div>
+                        )}
                     </div>
                 ) : (
                     <div className="animate-in fade-in zoom-in-95 duration-500 max-w-3xl mx-auto py-4">
@@ -377,16 +425,62 @@ export default function CctvForm({ allLogs }: CctvFormProps) {
                                         ) : (
                                             <>
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                                    <div className="space-y-2"><label className="enterprise-label">Date of Log</label><div className="relative group"><Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-blue-400" /><input type="date" className="enterprise-input !bg-slate-950/50 [color-scheme:dark]" {...register('date_of_action')} /></div>{errors.date_of_action && <p className="text-red-500 text-[10px] font-bold uppercase mt-2">{errors.date_of_action.message as string}</p>}</div>
-                                                    <div className="space-y-2"><label className="enterprise-label">What is the case category?</label><div className="relative"><button type="button" onClick={() => setIsClassificationOpen(!isClassificationOpen)} className="enterprise-input flex items-center justify-between cursor-pointer !bg-slate-950/50"><span className="flex items-center gap-3"><Tag className="w-5 h-5 text-blue-400" /><span className={classificationValue ? "text-white font-bold" : "text-slate-500"}>{classificationValue || "Choose a category..."}</span></span><ChevronDown className={clsx("w-5 h-5 text-slate-400 transition-transform", isClassificationOpen && "rotate-180")} /></button>{isClassificationOpen && <div className="absolute z-50 w-full mt-2 bg-slate-950 border border-white/10 rounded-2xl shadow-2xl overflow-hidden ring-1 ring-white/5">{CLASSIFICATION_OPTIONS.map((opt) => (<button key={opt} type="button" onClick={() => { setValue('classification', opt); setIsClassificationOpen(false); }} className="w-full flex items-center gap-3 px-5 py-3 text-left hover:bg-white/5 transition-colors border-b border-white/5 last:border-0"><span className="font-medium text-slate-300">{opt}</span>{classificationValue === opt && <CheckCircle2 className="w-4 h-4 ml-auto text-blue-500" />}</button>))}</div>}</div>{errors.classification && <p className="text-red-500 text-[10px] font-bold uppercase mt-2">{errors.classification.message as string}</p>}</div>
+                                                    <div className="space-y-2">
+                                                        <label className="enterprise-label">Date of Log</label>
+                                                        <div className="relative group">
+                                                            <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-400" />
+                                                            <input
+                                                                type="text"
+                                                                placeholder="YYYY-MM-DD"
+                                                                className="enterprise-input !bg-slate-950/50"
+                                                                {...register('date_of_action')}
+                                                                onBlur={(e) => handleSmartDate('date_of_action', e.target.value)}
+                                                            />
+                                                        </div>
+                                                        {errors.date_of_action && <p className="text-red-500 text-[10px] font-bold uppercase mt-2">{errors.date_of_action.message as string}</p>}
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <label className="enterprise-label">What is the case category?</label>
+                                                        <div className="relative">
+                                                            <button type="button" onClick={() => setIsClassificationOpen(!isClassificationOpen)} className="enterprise-input flex items-center justify-between cursor-pointer !bg-slate-950/50">
+                                                                <span className="flex items-center gap-3">
+                                                                    <Tag className="w-4 h-4 text-blue-400" />
+                                                                    <span className={classificationValue ? "text-white font-bold" : "text-slate-500"}>{classificationValue || "Choose a category..."}</span>
+                                                                </span>
+                                                                <ChevronDown className={clsx("w-4 h-4 text-slate-400 transition-transform", isClassificationOpen && "rotate-180")} />
+                                                            </button>
+                                                            {isClassificationOpen && <div className="absolute z-50 w-full mt-2 bg-slate-950 border border-white/10 rounded-2xl shadow-2xl overflow-hidden ring-1 ring-white/5">{CLASSIFICATION_OPTIONS.map((opt) => (<button key={opt} type="button" onClick={() => { setValue('classification', opt); setIsClassificationOpen(false); }} className="w-full flex items-center gap-3 px-5 py-3 text-left hover:bg-white/5 transition-colors border-b border-white/5 last:border-0"><span className="text-xs font-bold text-slate-300 uppercase tracking-wider">{opt}</span>{classificationValue === opt && <CheckCircle2 className="w-4 h-4 ml-auto text-blue-500" />}</button>))}</div>}
+                                                        </div>
+                                                        {errors.classification && <p className="text-red-500 text-[10px] font-bold uppercase mt-2">{errors.classification.message as string}</p>}
+                                                    </div>
                                                 </div>
-                                                {classificationValue && (<div className="space-y-2 animate-in fade-in slide-in-from-top-2"><label className="text-[10px] font-black text-blue-400 uppercase tracking-widest">{classificationValue} Remarks</label><div className="relative group"><Info className="absolute left-4 top-4 w-5 h-5 text-blue-400" /><textarea rows={2} placeholder={getClassificationPlaceholder(classificationValue)} className="enterprise-input !pl-12 resize-none !bg-slate-950/20" value={classificationRemarks} onChange={(e) => setClassificationRemarks(e.target.value)} /></div></div>)}
+                                                {classificationValue && (<div className="space-y-2 animate-in fade-in slide-in-from-top-2"><label className="text-[10px] font-black text-blue-400 uppercase tracking-widest">{classificationValue} Remarks</label><div className="relative group"><Info className="absolute left-4 top-4 w-4 h-4 text-blue-400" /><textarea rows={2} placeholder={getClassificationPlaceholder(classificationValue)} className="enterprise-input !pl-12 resize-none !bg-slate-950/20" value={classificationRemarks} onChange={(e) => setClassificationRemarks(e.target.value)} /></div></div>)}
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                                    <div className="space-y-2"><label className="enterprise-label">Camera Name or ID</label><div className="relative group"><Camera className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-blue-400" /><input type="text" placeholder="e.g. SOUTH-MAIN-01" className="enterprise-input !bg-slate-950/50" {...register('camera_name')} /></div>{errors.camera_name && <p className="text-red-500 text-[10px] font-bold uppercase mt-2">{errors.camera_name.message as string}</p>}</div>
-                                                    <div className="space-y-2"><label className="enterprise-label">Date and Time of Event</label><div className="relative group"><Clock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-blue-400" /><input type="text" className="enterprise-input !bg-slate-950/50" placeholder="YYYY-MM-DD HH:MM:SS" {...register('incident_datetime')} /></div>{errors.incident_datetime && <p className="text-red-500 text-[10px] font-bold uppercase mt-2">{errors.incident_datetime.message as string}</p>}</div>
+                                                    <div className="space-y-2">
+                                                        <label className="enterprise-label">Camera Name or ID</label>
+                                                        <div className="relative group">
+                                                            <Camera className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-400" />
+                                                            <input type="text" placeholder="e.g. SOUTH-MAIN-01" className="enterprise-input !bg-slate-950/50" {...register('camera_name')} />
+                                                        </div>
+                                                        {errors.camera_name && <p className="text-red-500 text-[10px] font-bold uppercase mt-2">{errors.camera_name.message as string}</p>}
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <label className="enterprise-label">Date and Time of Event</label>
+                                                        <div className="relative group">
+                                                            <Clock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-400" />
+                                                            <input
+                                                                type="text"
+                                                                className="enterprise-input !bg-slate-950/50"
+                                                                placeholder="YYYY-MM-DD HH:MM:SS"
+                                                                {...register('incident_datetime')}
+                                                                onBlur={(e) => handleSmartDate('incident_datetime', e.target.value)}
+                                                            />
+                                                        </div>
+                                                        {errors.incident_datetime && <p className="text-red-500 text-[10px] font-bold uppercase mt-2">{errors.incident_datetime.message as string}</p>}
+                                                    </div>
                                                 </div>
-                                                <div className="space-y-2"><label className="enterprise-label">Client or Person Involved</label><div className="relative group"><User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-blue-400" /><input type="text" placeholder="Full name of person or requester" className="enterprise-input !bg-slate-950/50" {...register('client_name')} /></div>{errors.client_name && <p className="text-red-500 text-[10px] font-bold uppercase mt-2">{errors.client_name.message as string}</p>}</div>
-                                                <div className="space-y-2"><label className="enterprise-label">Additional Case Notes</label><div className="relative group"><AlertCircle className="absolute left-4 top-4 w-5 h-5 text-blue-400" /><textarea rows={4} placeholder="Provide a clear description of the events..." className="enterprise-input !pl-12 resize-none !bg-slate-950/50" {...register('remarks')} /></div></div>
+                                                <div className="space-y-2"><label className="enterprise-label">Client or Person Involved</label><div className="relative group"><User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-400" /><input type="text" placeholder="Full name of person or requester" className="enterprise-input !bg-slate-950/50" {...register('client_name')} /></div>{errors.client_name && <p className="text-red-500 text-[10px] font-bold uppercase mt-2">{errors.client_name.message as string}</p>}</div>
+                                                <div className="space-y-2"><label className="enterprise-label">Additional Case Notes</label><div className="relative group"><AlertCircle className="absolute left-4 top-4 w-4 h-4 text-blue-400" /><textarea rows={3} placeholder="Provide a clear description of the events..." className="enterprise-input !pl-12 resize-none !bg-slate-950/50" {...register('remarks')} /></div></div>
                                             </>
                                         )}
                                         <button

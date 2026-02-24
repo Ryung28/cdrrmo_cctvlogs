@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import { CctvLogModel } from '@/lib/schemas/cctv_schema';
 import { deleteLogAction } from '@/app/actions/cctv_actions';
-import { toast } from 'sonner';
+import { notify } from '@/lib/utils/notifications';
 import {
     Trash2,
     Eye,
@@ -48,28 +48,17 @@ export default function CctvLogList({ logs, onDelete }: CctvLogListProps) {
 
     // Handle delete with optimistic UI and toast notifications
     const handleDelete = async (id: string) => {
-        if (!confirm('Are you sure you want to delete this log entry?')) {
-            return;
-        }
-
-        setDeletingId(id);
-
-        startTransition(async () => {
-            const result = await deleteLogAction(id);
-            if (result.error) {
-                // Error toast - Manual Rollback handled by parent
-                toast.error('Removal Failed', {
-                    description: 'The entry could not be deleted.',
-                    duration: 4000,
-                });
-                setDeletingId(null);
-            } else {
-                // Success toast
-                toast.success('Entry Removed', {
-                    description: 'The log item has been deleted.',
-                    duration: 3000,
-                });
-            }
+        notify.confirm('Delete this log entry?', async () => {
+            setDeletingId(id);
+            startTransition(async () => {
+                const result = await deleteLogAction(id);
+                if (result.error) {
+                    notify.removal(false, 'Removal Failed');
+                    setDeletingId(null);
+                } else {
+                    notify.removal(true, 'Entry Removed');
+                }
+            });
         });
     };
 

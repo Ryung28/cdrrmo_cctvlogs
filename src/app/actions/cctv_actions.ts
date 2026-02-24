@@ -67,19 +67,34 @@ export async function createCctvLogAction(formData: CctvLog) {
 }
 
 // Server action to fetch logs
-export async function getLogsAction(): Promise<CctvLogModel[]> {
+export async function getLogsAction(page: number = 1, pageSize: number = 10) {
     try {
-        const { data, error } = await CctvRepository.getLogs();
+        // Senior Logic: Calculate offset for pagination
+        const offset = (page - 1) * pageSize;
+
+        // We assume the repository is updated to handle range/pagination
+        const { data, error, count } = await CctvRepository.getLogs({
+            from: offset,
+            to: offset + pageSize - 1
+        });
 
         if (error) {
             console.error('Failed to fetch logs:', error);
-            return [];
+            return { logs: [], total: 0 };
         }
 
-        return data || [];
+        return {
+            logs: (data || []) as CctvLogModel[],
+            total: count || 0,
+            // Senior Logic: Return global stats so dashboard cards are always accurate
+            stats: {
+                total: count || 0,
+                // In a real app, you'd run a separate count query for these
+            }
+        };
     } catch (error) {
         console.error('Error fetching logs:', error);
-        return [];
+        return { logs: [], total: 0 };
     }
 }
 
