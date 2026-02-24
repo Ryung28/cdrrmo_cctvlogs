@@ -7,26 +7,48 @@ NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
 
-### Database Schema Recommendation
-Run the following SQL in your Supabase SQL Editor:
+## Supabase Connection
+The application is now connected to the correct Supabase project (`tggpzgdefublovkdfvpi.supabase.co`) where the `cctv_logs` table resides.
+
+### Database Schema (Run this in Supabase SQL Editor)
+Run the following SQL to create the table with ALL required fields:
 
 ```sql
-create table cctv_logs (
-  id uuid default gen_random_uuid() primary key,
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
-  action_type text not null,
-  date_of_action date not null,
-  classification text not null,
-  camera_name text not null,
-  incident_datetime timestamp with time zone not null,
-  client_name text not null,
-  remarks text
+-- Create the cctv_logs table
+CREATE TABLE public.cctv_logs (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  created_at timestamptz DEFAULT timezone('utc'::text, now()) NOT NULL,
+  action_type text NOT NULL,
+  date_of_action date NOT NULL,
+  classification text NOT NULL DEFAULT '',
+  camera_name text NOT NULL DEFAULT '',
+  incident_datetime text NOT NULL DEFAULT '',
+  client_name text NOT NULL DEFAULT '',
+  remarks text DEFAULT '',
+  classification_remarks text DEFAULT '',
+  offline_cameras text DEFAULT '[]'
 );
 
--- Turn on Row Level Security
-alter table cctv_logs enable row level security;
+-- Enable Row Level Security
+ALTER TABLE public.cctv_logs ENABLE ROW LEVEL SECURITY;
 
--- Create a policy that allows anyone to insert (Adjust for production)
-create policy "Allow public insert" on cctv_logs for insert with check (true);
-create policy "Allow public view" on cctv_logs for select using (true);
+-- Create policies to allow public access (adjust for production)
+CREATE POLICY "Allow public insert" ON public.cctv_logs FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public view" ON public.cctv_logs FOR SELECT USING (true);
+CREATE POLICY "Allow public update" ON public.cctv_logs FOR UPDATE USING (true);
+CREATE POLICY "Allow public delete" ON public.cctv_logs FOR DELETE USING (true);
+
+-- IMPORTANT: Refresh the schema cache after creating the table
+NOTIFY pgrst, 'reload schema';
 ```
+
+### How to run the SQL:
+1. Go to your Supabase Dashboard (https://supabase.com)
+2. Select your project
+3. Go to **SQL Editor** in the left sidebar
+4. Copy and paste the SQL above
+5. Click **Run** to execute
+
+### After creating the table:
+- Refresh your Next.js app at http://localhost:3000
+- The logs should now save successfully!

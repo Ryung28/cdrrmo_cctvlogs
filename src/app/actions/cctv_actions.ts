@@ -1,27 +1,102 @@
 'use server';
 
 import { CctvRepository } from '@/lib/repositories/cctv_repository';
-import { cctvLogSchema, CctvLog } from '@/lib/schemas/cctv_schema';
+import { cctvLogSchema, CctvLog, CctvReviewLog, OfflineCamerasLog, CctvLogModel, footageExtractionSchema } from '@/lib/schemas/cctv_schema';
 import { revalidatePath } from 'next/cache';
 
 export async function createCctvLogAction(formData: CctvLog) {
-    // Validate data server-side
+    console.log('[createCctvLogAction] Received formData:', JSON.stringify(formData, null, 2));
+
+    // Validate data server-side using discriminated union
     const validatedFields = cctvLogSchema.safeParse(formData);
 
     if (!validatedFields.success) {
+        console.error('[createCctvLogAction] Validation Error:', validatedFields.error.flatten());
         return {
-            error: 'Invalid fields. Please check your input.',
-            details: validatedFields.error.flatten().fieldErrors,
+            error: `Validation failed: ${validatedFields.error.issues.map(i => i.message).join(', ')}`,
         };
     }
 
-    const { data, error } = await CctvRepository.createLog(validatedFields.data);
+    const validatedData = validatedFields.data;
 
-    if (error) {
-        console.error('Supabase Error:', error);
-        return { error: 'Failed to create log entry. Please try again.' };
+    try {
+        // Prepare data for database based on action type
+        let dbData: any = {
+            action_type: validatedData.action_type,
+            date_of_action: validatedData.date_of_action || new Date().toISOString().split('T')[0],
+            remarks: validatedData.remarks || '',
+            classification_remarks: validatedData.classification_remarks || '',
+        };
+
+        // Handle different action types
+        if (validatedData.action_type === 'Offline Cameras') {
+            const offlineData = validatedData as OfflineCamerasLog;
+            dbData.classification = '';
+            dbData.camera_name = '';
+            dbData.incident_datetime = '';
+            dbData.client_name = '';
+
+            // Handle offline cameras array - convert to JSON string
+            if (offlineData.offline_cameras && Array.isArray(offlineData.offline_cameras)) {
+                dbData.offline_cameras = JSON.stringify(offlineData.offline_cameras);
+            } else {
+                dbData.offline_cameras = '[]';
+            }
+        } else {
+            const reviewData = validatedData as CctvReviewLog;
+            dbData.classification = reviewData.classification || '';
+            dbData.camera_name = reviewData.camera_name || '';
+            dbData.incident_datetime = reviewData.incident_datetime || '';
+            dbData.client_name = reviewData.client_name || '';
+            dbData.offline_cameras = '[]';
+        }
+
+        const { data, error } = await CctvRepository.createLog(dbData);
+
+        if (error) {
+            console.error('Supabase Error:', error);
+            return { error: `Failed to create log entry: ${error.message}` };
+        }
+
+        revalidatePath('/');
+        return { success: true, data };
+    } catch (error) {
+        console.error('Unexpected Error:', error);
+        return { error: 'An unexpected error occurred. Please try again.' };
     }
+}
 
-    revalidatePath('/'); // Revalidate the home page to show updated logs if needed
-    return { success: true, data };
+// Server action to fetch logs
+export async function getLogsAction(): Promise<CctvLogModel[]> {
+    try {
+        const { data, error } = await CctvRepository.getLogs();
+
+        if (error) {
+            console.error('Failed to fetch logs:', error);
+            return [];
+        }
+
+        return data || [];
+    } catch (error) {
+        console.error('Error fetching logs:', error);
+        return [];
+    }
+}
+
+// Server action to delete a log
+export async function deleteLogAction(id: string) {
+    try {
+        const { error } = await CctvRepository.deleteLog(id);
+
+        if (error) {
+            console.error('Failed to delete log:', error);
+            return { error: 'Failed to delete log entry.' };
+        }
+
+        revalidatePath('/');
+        return { success: true };
+    } catch (error) {
+        console.error('Error deleting log:', error);
+        return { error: 'An unexpected error occurred while deleting.' };
+    }
 }

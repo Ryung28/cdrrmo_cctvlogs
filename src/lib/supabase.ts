@@ -1,10 +1,18 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
-    console.warn('Supabase credentials missing. Please check your .env file.');
+    console.error('Supabase credentials missing:', { supabaseUrl, supabaseAnonKey });
+    throw new Error('Supabase credentials are missing in .env.local');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Log the URL being used (without the key for security)
+console.log('Initializing Supabase with URL:', supabaseUrl);
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+        persistSession: false
+    }
+});

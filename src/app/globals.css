@@ -138,9 +138,44 @@
 
 .enterprise-input:focus {
   outline: none;
-  border-color: var(--primary);
+  border-color: rgba(59, 130, 246, 0.4);
   background: rgba(15, 23, 42, 0.8);
-  box-shadow: 0 0 0 1px var(--primary);
+  box-shadow:
+    0 0 0 4px rgba(59, 130, 246, 0.1),
+    0 0 20px rgba(59, 130, 246, 0.05);
+}
+
+/* Senior Dev Polish: Normalize native browser icons for dark mode */
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"] {
+  color-scheme: dark !important;
+}
+
+/* Senior Dev Polish: Hide redundant native browser picker icons */
+input::-webkit-calendar-picker-indicator,
+input::-webkit-inner-spin-button,
+input::-webkit-clear-button {
+  display: none !important;
+  -webkit-appearance: none;
+}
+
+/* Ensure the input text remains aligned and visible */
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"] {
+  color-scheme: dark !important;
+}
+
+input::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
+/* Remove default blue focus ring from all inputs */
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none !important;
 }
 
 .enterprise-label {
@@ -323,4 +358,83 @@
   display: flex;
   align-items: center;
   gap: 0.25rem;
+}
+
+/* ==================== RESPONSIVE TOAST STYLES ==================== */
+
+/* Base toast positioning */
+[data-sonner-toaster] {
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+}
+
+/* Mobile styles (< 640px) */
+@media (max-width: 639px) {
+  [data-sonner-toaster] {
+    left: 1rem !important;
+    right: 1rem !important;
+    transform: none !important;
+    width: calc(100% - 2rem) !important;
+    max-width: none !important;
+  }
+
+  [data-sonner-toast] {
+    font-size: 11px !important;
+    padding: 8px 12px !important;
+  }
+
+  [data-title] {
+    font-size: 12px !important;
+  }
+
+  [data-description] {
+    font-size: 10px !important;
+  }
+}
+
+/* Tablet styles (640px - 1024px) */
+@media (min-width: 640px) and (max-width: 1023px) {
+  [data-sonner-toaster] {
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: 90% !important;
+    max-width: 400px !important;
+  }
+
+  [data-sonner-toast] {
+    font-size: 12px !important;
+  }
+}
+
+/* Desktop styles (>= 1024px) */
+@media (min-width: 1024px) {
+  [data-sonner-toaster] {
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: auto !important;
+    max-width: 380px !important;
+  }
+
+  [data-sonner-toast] {
+    font-size: 13px !important;
+  }
+}
+
+/* Toast animations for mobile */
+@media (max-width: 639px) {
+  [data-sonner-toast][data-styled="true"] {
+    animation: toast-slide-up-mobile 0.3s ease-out !important;
+  }
+
+  @keyframes toast-slide-up-mobile {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
 }
