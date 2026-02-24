@@ -10,7 +10,7 @@ export default async function Home({
     searchParams: Promise<{ page?: string }>
 }) {
     const page = Number((await searchParams).page) || 1;
-    const { logs, total } = await getLogsAction(page);
+    const { logs, total, stats } = await getLogsAction(page);
 
     return (
         <main className="min-h-screen py-16 px-4 relative flex flex-col items-center overflow-x-hidden">
@@ -61,6 +61,7 @@ export default async function Home({
                         allLogs={logs}
                         totalCount={total}
                         currentPage={page}
+                        globalStats={stats}
                     />
                 </div>
 

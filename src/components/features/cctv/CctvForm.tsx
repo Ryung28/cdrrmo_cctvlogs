@@ -46,9 +46,14 @@ interface CctvFormProps {
     allLogs: CctvLogModel[];
     totalCount: number;
     currentPage: number;
+    globalStats?: {
+        reviews: number;
+        extractions: number;
+        offline: number;
+    };
 }
 
-export default function CctvForm({ allLogs, totalCount, currentPage }: CctvFormProps) {
+export default function CctvForm({ allLogs, totalCount, currentPage, globalStats }: CctvFormProps) {
     const router = useRouter();
     const PAGE_SIZE = 10;
     const totalPages = Math.ceil(totalCount / PAGE_SIZE);
@@ -121,6 +126,16 @@ export default function CctvForm({ allLogs, totalCount, currentPage }: CctvFormP
 
     // Stats calculation optimized for Senior Dev performance
     const stats = useMemo(() => {
+        // If server provided global stats, use them as base
+        if (globalStats) {
+            return {
+                total: totalCount,
+                reviews: globalStats.reviews,
+                extractions: globalStats.extractions,
+                offline: globalStats.offline
+            };
+        }
+
         const combined = [...allLogs, ...optimisticLogs];
         return {
             total: combined.length,
@@ -128,7 +143,7 @@ export default function CctvForm({ allLogs, totalCount, currentPage }: CctvFormP
             extractions: combined.filter(l => l.action_type === 'Footage Extraction').length,
             offline: combined.filter(l => l.action_type === 'Offline Cameras').length,
         };
-    }, [allLogs, optimisticLogs]);
+    }, [allLogs, optimisticLogs, globalStats, totalCount]);
 
     const getClassificationPlaceholder = (classification: string) => {
         const placeholders: Record<string, string> = {

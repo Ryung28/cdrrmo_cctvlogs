@@ -3,6 +3,7 @@
 import { CctvRepository } from '@/lib/repositories/cctv_repository';
 import { cctvLogSchema, CctvLog, CctvReviewLog, OfflineCamerasLog, CctvLogModel, footageExtractionSchema } from '@/lib/schemas/cctv_schema';
 import { revalidatePath } from 'next/cache';
+import { supabase } from '@/lib/supabase';
 
 export async function createCctvLogAction(formData: CctvLog) {
     console.log('[createCctvLogAction] Received formData:', JSON.stringify(formData, null, 2));
@@ -72,29 +73,36 @@ export async function getLogsAction(page: number = 1, pageSize: number = 10) {
         // Senior Logic: Calculate offset for pagination
         const offset = (page - 1) * pageSize;
 
-        // We assume the repository is updated to handle range/pagination
-        const { data, error, count } = await CctvRepository.getLogs({
-            from: offset,
-            to: offset + pageSize - 1
-        });
+        // Parallel execution for high-performance dashboard stats
+        const [logsResponse, reviewCount, extractCount, offlineCount] = await Promise.all([
+            CctvRepository.getLogs({
+                from: offset,
+                to: offset + pageSize - 1
+            }),
+            supabase.from('cctv_logs').select('*', { count: 'exact', head: true }).eq('action_type', 'CCTV Review'),
+            supabase.from('cctv_logs').select('*', { count: 'exact', head: true }).eq('action_type', 'Footage Extraction'),
+            supabase.from('cctv_logs').select('*', { count: 'exact', head: true }).eq('action_type', 'Offline Cameras')
+        ]);
 
-        if (error) {
-            console.error('Failed to fetch logs:', error);
-            return { logs: [], total: 0 };
+        if (logsResponse.error) {
+            console.error('Failed to fetch logs:', logsResponse.error);
+            return { logs: [], total: 0, stats: { reviews: 0, extractions: 0, offline: 0 } };
         }
 
         return {
-            logs: (data || []) as CctvLogModel[],
-            total: count || 0,
+            logs: (logsResponse.data || []) as CctvLogModel[],
+            total: logsResponse.count || 0,
             // Senior Logic: Return global stats so dashboard cards are always accurate
             stats: {
-                total: count || 0,
-                // In a real app, you'd run a separate count query for these
+                total: logsResponse.count || 0,
+                reviews: reviewCount.count || 0,
+                extractions: extractCount.count || 0,
+                offline: offlineCount.count || 0
             }
         };
     } catch (error) {
         console.error('Error fetching logs:', error);
-        return { logs: [], total: 0 };
+        return { logs: [], total: 0, stats: { reviews: 0, extractions: 0, offline: 0 } };
     }
 }
 
