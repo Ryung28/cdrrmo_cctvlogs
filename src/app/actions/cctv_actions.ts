@@ -66,7 +66,18 @@ export async function createCCTVLog(formData: CctvLog) {
         }
 
         // 3. Database Commit (The Vault)
-        const { data, error } = await CctvRepository.createLog(dbData);
+        let { data, error } = await CctvRepository.createLog(dbData);
+
+        // EXTRAORDINARY MEASURE: Handle PGRST204 Cache Desync
+        // If the API refuses the new column, retry without it to ensure the log is saved
+        if (error && (error.message?.includes('incident_datetime_end') || error.includes('incident_datetime_end'))) {
+            console.warn('[RECOVERY] Supabase cache desync detected. Retrying without incident_datetime_end.');
+            const fallbackData = { ...dbData };
+            delete fallbackData.incident_datetime_end;
+            const retry = await CctvRepository.createLog(fallbackData);
+            data = retry.data;
+            error = retry.error;
+        }
 
         if (error) {
             console.error('[SUPABASE] Insertion Error:', error);

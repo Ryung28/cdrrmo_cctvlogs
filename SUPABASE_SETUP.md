@@ -29,6 +29,7 @@ CREATE TABLE public.cctv_logs (
   office text DEFAULT '',
   remarks text DEFAULT '',
   classification_remarks text DEFAULT '',
+  incident_datetime_end text DEFAULT '',
   offline_cameras jsonb DEFAULT '[]'::jsonb
 );
 
