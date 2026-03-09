@@ -5,83 +5,129 @@ import { cctvLogSchema, CctvLog, CctvReviewLog, OfflineCamerasLog, CctvLogModel,
 import { revalidatePath } from 'next/cache';
 import { supabase } from '@/lib/supabase';
 
-export async function createCctvLogAction(formData: CctvLog) {
-    console.log('[createCctvLogAction] Received formData:', JSON.stringify(formData, null, 2));
+/**
+ * Server Action: createCCTVLog
+ * Pattern: Typed Result Pattern
+ * Description: Inserts a new CCTV log entry into the Supabase 'cctv_logs' table.
+ */
+export async function createCCTVLog(formData: CctvLog) {
+    console.log('[TRANSIT] createCCTVLog Payload Triggered');
 
-    // Validate data server-side using discriminated union
+    // 1. Zod Validation (The Brain)
     const validatedFields = cctvLogSchema.safeParse(formData);
 
     if (!validatedFields.success) {
-        console.error('[createCctvLogAction] Validation Error:', validatedFields.error.flatten());
+        console.error('[CRITICAL] Server Validation Failure:', validatedFields.error.flatten());
         return {
-            error: `Validation failed: ${validatedFields.error.issues.map(i => i.message).join(', ')}`,
+            success: false,
+            message: 'Validation failed. Please check the operational parameters.',
+            errors: validatedFields.error.flatten().fieldErrors
         };
     }
 
     const validatedData = validatedFields.data;
 
     try {
-        // Prepare data for database based on action type
+        // 2. Data Preparation (The Manager)
         let dbData: any = {
             action_type: validatedData.action_type,
             date_of_action: validatedData.date_of_action || new Date().toISOString().split('T')[0],
             remarks: validatedData.remarks || '',
             classification_remarks: validatedData.classification_remarks || '',
+            contact_number: (validatedData as any).contact_number || '',
+            address: (validatedData as any).address || '',
+            office: (validatedData as any).office || '',
         };
 
-        // Handle different action types
+        // Handle discriminatory logic for Offline Cameras vs Reviews
         if (validatedData.action_type === 'Offline Cameras') {
             const offlineData = validatedData as OfflineCamerasLog;
-            dbData.classification = '';
+            dbData.classification = 'Offline';
             dbData.camera_name = '';
             dbData.incident_datetime = '';
             dbData.client_name = '';
 
-            // Handle offline cameras array - convert to JSON string
-            if (offlineData.offline_cameras && Array.isArray(offlineData.offline_cameras)) {
-                dbData.offline_cameras = JSON.stringify(offlineData.offline_cameras);
-            } else {
-                dbData.offline_cameras = '[]';
-            }
+            // PASS RAW OBJECT: Supabase-js handles JSONB serialization
+            dbData.offline_cameras = offlineData.offline_cameras || [];
         } else {
-            const reviewData = validatedData as CctvReviewLog;
+            const reviewData = validatedData as any;
             dbData.classification = reviewData.classification || '';
-            dbData.camera_name = reviewData.camera_name || '';
+
+            if (reviewData.cameras && Array.isArray(reviewData.cameras)) {
+                dbData.camera_name = reviewData.cameras.map((c: any) => c.name).join(', ');
+            } else {
+                dbData.camera_name = '';
+            }
+
             dbData.incident_datetime = reviewData.incident_datetime || '';
+            dbData.incident_datetime_end = reviewData.incident_datetime_end || '';
             dbData.client_name = reviewData.client_name || '';
-            dbData.offline_cameras = '[]';
+            dbData.offline_cameras = [];
         }
 
+        // 3. Database Commit (The Vault)
         const { data, error } = await CctvRepository.createLog(dbData);
 
         if (error) {
-            console.error('Supabase Error:', error);
-            return { error: `Failed to create log entry: ${error.message}` };
+            console.error('[SUPABASE] Insertion Error:', error);
+            return {
+                success: false,
+                message: `DATABASE_REJECTION: ${error.message || error}`
+            };
         }
 
+        // 4. Path Revalidation (Sync)
         revalidatePath('/');
-        return { success: true, data };
+        return {
+            success: true,
+            message: 'Log Committed: Entry successfully synced to the central matrix.',
+            data
+        };
     } catch (error) {
-        console.error('Unexpected Error:', error);
-        return { error: 'An unexpected error occurred. Please try again.' };
+        console.error('[UNEXPECTED] Action Crash:', error);
+        return {
+            success: false,
+            message: 'Critical system error: Handshake rejected by server.'
+        };
     }
 }
 
-// Server action to fetch logs
-export async function getLogsAction(page: number = 1, pageSize: number = 10) {
+// Server action to fetch logs with advanced filtering
+export async function getLogsAction(page: number = 1, pageSize: number = 10, actionType?: string, startDate?: string, endDate?: string) {
     try {
         // Senior Logic: Calculate offset for pagination
         const offset = (page - 1) * pageSize;
+
+        // Base queries for parallel stats acquisition
+        const reviewQuery = supabase.from('cctv_logs').select('*', { count: 'exact', head: true }).eq('action_type', 'CCTV Review');
+        const extractQuery = supabase.from('cctv_logs').select('*', { count: 'exact', head: true }).eq('action_type', 'Footage Extraction');
+        const offlineQuery = supabase.from('cctv_logs').select('*', { count: 'exact', head: true }).eq('action_type', 'Offline Cameras');
+
+        // Apply date range filter to status cards if provided
+        if (startDate) {
+            reviewQuery.gte('date_of_action', startDate);
+            extractQuery.gte('date_of_action', startDate);
+            offlineQuery.gte('date_of_action', startDate);
+        }
+
+        if (endDate) {
+            reviewQuery.lte('date_of_action', endDate);
+            extractQuery.lte('date_of_action', endDate);
+            offlineQuery.lte('date_of_action', endDate);
+        }
 
         // Parallel execution for high-performance dashboard stats
         const [logsResponse, reviewCount, extractCount, offlineCount] = await Promise.all([
             CctvRepository.getLogs({
                 from: offset,
-                to: offset + pageSize - 1
+                to: offset + pageSize - 1,
+                actionType,
+                startDate,
+                endDate
             }),
-            supabase.from('cctv_logs').select('*', { count: 'exact', head: true }).eq('action_type', 'CCTV Review'),
-            supabase.from('cctv_logs').select('*', { count: 'exact', head: true }).eq('action_type', 'Footage Extraction'),
-            supabase.from('cctv_logs').select('*', { count: 'exact', head: true }).eq('action_type', 'Offline Cameras')
+            reviewQuery,
+            extractQuery,
+            offlineQuery
         ]);
 
         if (logsResponse.error) {
@@ -92,7 +138,7 @@ export async function getLogsAction(page: number = 1, pageSize: number = 10) {
         return {
             logs: (logsResponse.data || []) as CctvLogModel[],
             total: logsResponse.count || 0,
-            // Senior Logic: Return global stats so dashboard cards are always accurate
+            // Senior Logic: Return global stats relative to the selected date if present
             stats: {
                 total: logsResponse.count || 0,
                 reviews: reviewCount.count || 0,

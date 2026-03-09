@@ -24,9 +24,12 @@ CREATE TABLE public.cctv_logs (
   camera_name text NOT NULL DEFAULT '',
   incident_datetime text NOT NULL DEFAULT '',
   client_name text NOT NULL DEFAULT '',
+  contact_number text DEFAULT '',
+  address text DEFAULT '',
+  office text DEFAULT '',
   remarks text DEFAULT '',
   classification_remarks text DEFAULT '',
-  offline_cameras text DEFAULT '[]'
+  offline_cameras jsonb DEFAULT '[]'::jsonb
 );
 
 -- Enable Row Level Security

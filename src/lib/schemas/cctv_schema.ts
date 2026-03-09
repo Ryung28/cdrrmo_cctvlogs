@@ -35,18 +35,27 @@ const normalizeStringTransform = z.string()
 const toTitleCaseTransform = z.string()
   .transform((str) => {
     if (!str) return "";
-    return str.replace(/\w\S*/g, (txt) => 
+    return str.replace(/\w\S*/g, (txt) =>
       txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()
     );
   });
 
 // ==================== BASE SCHEMAS ====================
 
+// Camera entry schema for dynamic lists
+export const cameraEntrySchema = z.object({
+  name: z.string()
+    .min(1, { message: "Camera name is required." })
+    .transform((val) => val?.trim().toUpperCase() || ""),
+  timestamp: z.string().optional(),
+});
+
 // Offline camera entry schema with transforms
 export const offlineCameraEntrySchema = z.object({
   camera_name: z.string()
     .min(1, { message: "Camera name is required." })
     .transform((val) => val?.trim().toUpperCase() || ""),
+  nvr: z.string().transform((val) => val?.trim().toUpperCase() || ""),
   offline_date: z.string()
     .min(1, { message: "Date is required." })
     .refine((val) => /^\d{4}-\d{2}-\d{2}$/.test(val), {
@@ -57,6 +66,7 @@ export const offlineCameraEntrySchema = z.object({
     .refine((val) => /^\d{2}:\d{2}(:\d{2})?$/.test(val), {
       message: "Time must be in HH:MM or HH:MM:SS format"
     }),
+  remarks: z.string(),
 });
 
 // Base schema with transforms
@@ -79,15 +89,14 @@ export const cctvReviewSchema = baseSchema.extend({
   classification: z.string()
     .min(1, { message: "Classification is required." })
     .transform((val) => toTitleCaseTransform.parse(val)),
-  camera_name: z.string()
-    .min(1, { message: "Camera name is required." })
-    .transform((val) => val?.trim().toUpperCase() || ""),
+  cameras: z.array(cameraEntrySchema)
+    .min(1, { message: "At least one camera is required." }),
   incident_datetime: z.string()
     .min(1, { message: "Incident time and date is required." })
     .refine((val) => {
-      // Allow both datetime and date-only formats
-      return /^\d{4}-\d{2}-\d{2}( \d{2}:\d{2}(:\d{2})?)?$/.test(val) || 
-             /^\d{4}-\d{2}-\d{2}$/.test(val);
+      // Allow both datetime (with space or T) and date-only formats
+      return /^\d{4}-\d{2}-\d{2}([ T]\d{2}:\d{2}(:\d{2})?)?$/.test(val) ||
+        /^\d{4}-\d{2}-\d{2}$/.test(val);
     }, {
       message: "Incident time must be in YYYY-MM-DD or YYYY-MM-DD HH:MM:SS format"
     }),
@@ -96,28 +105,34 @@ export const cctvReviewSchema = baseSchema.extend({
     .transform((val) => {
       // Convert to title case for consistency
       if (!val) return "";
-      return val.replace(/\w\S*/g, (txt) => 
+      return val.replace(/\w\S*/g, (txt) =>
         txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()
       );
     }),
+  contact_number: z.string()
+    .min(11, { message: "Contact number must be exactly 11 digits." })
+    .max(11, { message: "Contact number must be exactly 11 digits." })
+    .regex(/^09\d{9}$/, { message: "Invalid format. Use 09XXXXXXXXX (11 digits)." }),
+  address: z.string()
+    .min(1, { message: "Address is required for record integrity." }),
 })
-// Cross-field validation using refine
-.refine(
-  (data) => {
-    // Ensure date of action is not in the future
-    if (data.date_of_action) {
-      const actionDate = new Date(data.date_of_action);
-      const today = new Date();
-      today.setHours(23, 59, 59, 999);
-      return actionDate <= today;
+  // Cross-field validation using refine
+  .refine(
+    (data) => {
+      // Ensure date of action is not in the future
+      if (data.date_of_action) {
+        const actionDate = new Date(data.date_of_action);
+        const today = new Date();
+        today.setHours(23, 59, 59, 999);
+        return actionDate <= today;
+      }
+      return true;
+    },
+    {
+      message: "Date of action cannot be in the future",
+      path: ["date_of_action"],
     }
-    return true;
-  },
-  {
-    message: "Date of action cannot be in the future",
-    path: ["date_of_action"],
-  }
-);
+  );
 
 // ==================== FOOTAGE EXTRACTION SCHEMA ====================
 
@@ -126,14 +141,14 @@ export const footageExtractionSchema = baseSchema.extend({
   classification: z.string()
     .min(1, { message: "Classification is required." })
     .transform((val) => toTitleCaseTransform.parse(val)),
-  camera_name: z.string()
-    .min(1, { message: "Camera name is required." })
-    .transform((val) => val?.trim().toUpperCase() || ""),
+  cameras: z.array(cameraEntrySchema)
+    .min(1, { message: "At least one camera is required." }),
   incident_datetime: z.string()
     .min(1, { message: "Incident time and date is required." })
     .refine((val) => {
-      return /^\d{4}-\d{2}-\d{2}( \d{2}:\d{2}(:\d{2})?)?$/.test(val) || 
-             /^\d{4}-\d{2}-\d{2}$/.test(val);
+      // Allow both datetime (with space or T) and date-only formats
+      return /^\d{4}-\d{2}-\d{2}([ T]\d{2}:\d{2}(:\d{2})?)?$/.test(val) ||
+        /^\d{4}-\d{2}-\d{2}$/.test(val);
     }, {
       message: "Incident time must be in YYYY-MM-DD or YYYY-MM-DD HH:MM:SS format"
     }),
@@ -141,53 +156,62 @@ export const footageExtractionSchema = baseSchema.extend({
     .min(1, { message: "Client name is required." })
     .transform((val) => {
       if (!val) return "";
-      return val.replace(/\w\S*/g, (txt) => 
+      return val.replace(/\w\S*/g, (txt) =>
         txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()
       );
     }),
+  office: z.string()
+    .min(1, { message: "Office/Department is required." }),
+  contact_number: z.string()
+    .min(11, { message: "Contact number must be exactly 11 digits." })
+    .max(11, { message: "Contact number must be exactly 11 digits." })
+    .regex(/^09\d{9}$/, { message: "Invalid format. Use 09XXXXXXXXX (11 digits)." }),
+  address: z.string()
+    .min(1, { message: "Address is required for record integrity." }),
+  incident_datetime_end: z.string().optional(),
 })
-.refine(
-  (data) => {
-    if (data.date_of_action) {
-      const actionDate = new Date(data.date_of_action);
-      const today = new Date();
-      today.setHours(23, 59, 59, 999);
-      return actionDate <= today;
+  .refine(
+    (data) => {
+      if (data.date_of_action) {
+        const actionDate = new Date(data.date_of_action);
+        const today = new Date();
+        today.setHours(23, 59, 59, 999);
+        return actionDate <= today;
+      }
+      return true;
+    },
+    {
+      message: "Date of action cannot be in the future",
+      path: ["date_of_action"],
     }
-    return true;
-  },
-  {
-    message: "Date of action cannot be in the future",
-    path: ["date_of_action"],
-  }
-);
+  );
 
 // ==================== OFFLINE CAMERAS SCHEMA ====================
 
 export const offlineCamerasSchema = baseSchema.extend({
   action_type: z.literal("Offline Cameras"),
   classification: z.string().optional(),
-  camera_name: z.string().optional(),
+  cameras: z.array(cameraEntrySchema).optional(),
   incident_datetime: z.string().optional(),
   client_name: z.string().optional(),
   offline_cameras: z.array(offlineCameraEntrySchema)
     .min(1, { message: "At least one offline camera is required." })
     .max(50, { message: "Maximum 50 offline cameras allowed." }),
 })
-// Validate that at least one offline camera has complete data
-.refine(
-  (data) => {
-    if (!data.offline_cameras || data.offline_cameras.length === 0) return false;
-    // Check that all entries have complete data
-    return data.offline_cameras.every(
-      (cam) => cam.camera_name && cam.offline_date && cam.offline_time
-    );
-  },
-  {
-    message: "All offline camera entries must have camera name, date, and time",
-    path: ["offline_cameras"],
-  }
-);
+  // Validate that at least one offline camera has complete data
+  .refine(
+    (data) => {
+      if (!data.offline_cameras || data.offline_cameras.length === 0) return false;
+      // Check that all entries have complete data
+      return data.offline_cameras.every(
+        (cam) => cam.camera_name && cam.offline_date && cam.offline_time
+      );
+    },
+    {
+      message: "All offline camera entries must have camera name, date, and time",
+      path: ["offline_cameras"],
+    }
+  );
 
 // ==================== DISCRIMINATED UNION ====================
 
@@ -210,8 +234,13 @@ export type OfflineCameraEntry = z.infer<typeof offlineCameraEntrySchema>;
 export type CctvLogModel = CctvLog & {
   id: string;
   created_at: string;
+  camera_name?: string; // Database column
   offline_cameras?: string;
   classification_remarks?: string;
+  contact_number?: string;
+  address?: string;
+  office?: string;
+  incident_datetime_end?: string;
 };
 
 // ==================== VALIDATION HELPERS ====================

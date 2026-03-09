@@ -18,7 +18,10 @@ import {
     Calendar,
     User,
     Tag,
-    Info
+    Info,
+    Phone,
+    MapPin,
+    Building2
 } from 'lucide-react';
 import { clsx } from 'clsx';
 
@@ -118,12 +121,31 @@ export default function CctvLogList({ logs, onDelete }: CctvLogListProps) {
 
     if (logs.length === 0) {
         return (
-            <div className="text-center py-12">
-                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-800 mb-4">
-                    <Camera className="w-8 h-8 text-slate-500" />
+            <div className="text-center py-16 bg-slate-900/20 rounded-3xl border border-dashed border-white/5 animate-in fade-in zoom-in-95 duration-700">
+                <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-slate-950/50 mb-6 border border-white/5 shadow-2xl">
+                    <AlertCircle className="w-10 h-10 text-slate-700" />
                 </div>
-                <p className="text-slate-500 font-medium">No log entries yet</p>
-                <p className="text-slate-600 text-sm mt-1">Submit the form above to create your first entry</p>
+                <h3 className="text-lg font-bold text-slate-400">Mission Parameters yielded no logs</h3>
+                <p className="text-slate-600 text-sm mt-2 max-w-xs mx-auto">
+                    Adjust your operational filters or mission date to locate specific logs, or record a new entry.
+                </p>
+                <div className="mt-8 flex justify-center gap-4">
+                    <button
+                        onClick={() => window.location.search = ""}
+                        className="px-6 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+                    >
+                        Reset All Criteria
+                    </button>
+                    <button
+                        onClick={() => {
+                            const btn = document.querySelector('button[onClick*="setActiveView(\'create\')"]') as HTMLButtonElement;
+                            if (btn) btn.click();
+                        }}
+                        className="px-6 py-2 bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-blue-500/20"
+                    >
+                        Create New Log
+                    </button>
+                </div>
             </div>
         );
     }
@@ -244,6 +266,35 @@ export default function CctvLogList({ logs, onDelete }: CctvLogListProps) {
                                             </div>
                                             <p className="text-sm text-white font-semibold">{log.client_name || '-'}</p>
                                         </div>
+
+                                        {/* Contact & Address Row */}
+                                        {log.contact_number && (
+                                            <div className="space-y-1">
+                                                <div className="flex items-center gap-2 text-slate-500">
+                                                    <Phone className="w-3.5 h-3.5" />
+                                                    <span className="text-[10px] uppercase font-black tracking-widest">Contact No.</span>
+                                                </div>
+                                                <p className="text-sm font-mono text-blue-400">{log.contact_number}</p>
+                                            </div>
+                                        )}
+                                        {log.address && (
+                                            <div className="md:col-span-3 space-y-1">
+                                                <div className="flex items-center gap-2 text-slate-500">
+                                                    <MapPin className="w-3.5 h-3.5" />
+                                                    <span className="text-[10px] uppercase font-black tracking-widest">Resident Address</span>
+                                                </div>
+                                                <p className="text-sm text-white font-medium">{log.address}</p>
+                                            </div>
+                                        )}
+                                        {log.office && (
+                                            <div className="md:col-span-4 space-y-1">
+                                                <div className="flex items-center gap-2 text-slate-500">
+                                                    <Building2 className="w-3.5 h-3.5" />
+                                                    <span className="text-[10px] uppercase font-black tracking-widest">Requesting Office</span>
+                                                </div>
+                                                <p className="text-sm text-blue-400 font-black uppercase tracking-widest">{log.office}</p>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
 
